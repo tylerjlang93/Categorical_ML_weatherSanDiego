@@ -1,0 +1,100 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Created on Fri Oct  9 16:49:00 2020
+
+@author: tyler
+"""
+
+from sklearn.preprocessing import StandardScaler
+from sklearn.cluster import KMeans
+import pandas as pd
+import numpy as np
+from itertools import cycle, islice
+import matplotlib.pyplot as plt
+from pandas.plotting import parallel_coordinates
+
+#############################################################
+#######LOADING, SAMPLING, OBSERVING DATA#####################
+#############################################################
+
+data = pd.read_csv('./weather/minute_weather.csv')
+# data.shape
+# data.head()
+# data.tail()
+
+sample_set = data[(data['rowID']%10) == 0]
+# sample_set.shape
+# sample_set.describe().transpose()
+
+
+#############################################################
+################ CLEANING THE DATA ##########################
+#############################################################
+
+# sample_set[sample_set['rain_accumulation'] == 0].shape   # --> We see it's nearly all 0's
+# sample_Set[sample_Set['rain_duration'] == 0].shape       # --> We see it's nearly all 0's
+del sample_set['rain_accumulation']
+del sample_set['rain_duration']
+sample_set = sample_set.dropna()
+
+
+#############################################################
+######### PREPARING THE DATA FOR CLUSTERING #################
+#############################################################
+
+# sample_set.columns # --> to see column names so we can pick what we want
+features = ['air_pressure', 'air_temp', 'avg_wind_direction', 'avg_wind_speed', 'max_wind_direction',
+        'max_wind_speed','relative_humidity'] #picking the column names for which we want to keep
+selected_col_sample = sample_set[features] #making the data set that only has the wanted columns
+
+X = StandardScaler().fit_transform(selected_col_sample) # Standardizing the values so we can cluster them appropriately
+# X # --> Makes an array of lists of the values, standardized, without headers
+
+
+#############################################################
+####################### CLUSTERTING #########################
+#############################################################
+
+kmeans_func = KMeans(n_clusters = 12) # Builds the equation for a kmeans with 12 clusters
+model = kmeans_func.fit(X) #Applies the model function we made to the data set, or "fits" it
+centers = model.cluster_centers_ #Extracts the center values for each column, per cluster
+# centers
+
+
+#############################################################
+######### FUNCTIONS FOR VISUALIZATION OF TRENDS #############
+#############################################################
+
+# Function that creates a DataFrame with a column for Cluster Number
+
+def pd_centers(featuresUsed, centers):
+	colNames = list(featuresUsed)
+	colNames.append('prediction')
+
+	# Zip with a column called 'prediction' (index)
+	Z = [np.append(A, index) for index, A in enumerate(centers)]
+
+	# Convert to pandas data frame for plotting
+	P = pd.DataFrame(Z, columns=colNames)
+	P['prediction'] = P['prediction'].astype(int)
+	return P
+
+# Function that creates Parallel Plots
+
+def parallel_plot(data):
+	my_colors = list(islice(cycle(['b', 'r', 'g', 'y', 'k', 'c', 'm']), None, len(data)))
+	plt.figure().gca().axes.set_ylim([-3,+3])
+	parallel_coordinates(data, 'prediction', color = my_colors, marker='o')
+
+
+
+#############################################################
+######### VISUALIZATION OF CLUSTERS AND TRENDS ##############
+#############################################################
+
+P = pd_centers(features, centers)
+P
+parallel_plot(P[P['relative_humidity'] < -0.5]) # Dry Days
+parallel_plot(P[P['air_temp']>0.5]) # Warm Days
+parallel_plot(P[(P['relative_humidity'] > 0.5) & (P['air_temp'] < 0.5)]) #Humid, cool days
