@@ -1,0 +1,70 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Created on Thu Oct  8 22:37:42 2020
+
+@author: tyler
+"""
+
+import pandas as pd
+from sklearn.metrics import accuracy_score
+from sklearn.model_selection import train_test_split
+from sklearn.tree import DecisionTreeClassifier
+import matplotlib.pyplot as plt
+
+data = pd.read_csv('./weather.csv')
+len(data[data.isnull().any(axis=1)])
+
+#clean
+del data['number']
+data = data.dropna()
+clean_data = data.copy()
+
+# making the classifier column
+clean_data['high_humidity_label'] = (clean_data['relative_humidity_3pm'] > 24.99)*1 # *1 to make it 1 and 0 instead of T or F
+
+
+# Making X and Y
+Y = clean_data[['high_humidity_label']].copy()
+morning_features = ['air_pressure_9am','air_temp_9am','avg_wind_direction_9am','avg_wind_speed_9am',
+        'max_wind_direction_9am','max_wind_speed_9am','rain_accumulation_9am',
+        'rain_duration_9am']
+X = clean_data[morning_features].copy()
+
+
+# Splitting the X and Y into training and testing sets
+X_train, X_test, Y_train, Y_test = train_test_split(X,Y, test_size=0.33, random_state=324)
+
+# Running the classification predictor, by making a variable that is assigned the functions, and then given the data.
+humidity_classifier = DecisionTreeClassifier(max_leaf_nodes=10, random_state=0) #makes the function to be applied to the train data
+humidity_classifier.fit(X_train,Y_train)
+
+
+# Running the now trained model on the test data to see if it was accurate
+predictions = humidity_classifier.predict(X_test) #remember, the test doesn't get fed any Y data. We just use Y_test to see how accurate the results of the prediction were
+
+#How accurate is it?
+predictions[:10]
+Y_test['high_humidity_label'][:10]
+print(accuracy_score(y_true = Y_test, y_pred = predictions))
+
+################################################################
+# Seeing at which amount of nodes receives peak accuracy #######
+# at the given random kernel of 324 for picking train vs test.##
+################################################################
+
+r = list()
+leaves = []
+
+for i in range(2,100):
+    leaves.append(i)
+    humidity_classifier = DecisionTreeClassifier(max_leaf_nodes= i, random_state=0) #makes the function to be applied to the train data
+    humidity_classifier.fit(X_train,Y_train)
+    # Running the now trained model on the test data to see if it was accurate
+    predictions = humidity_classifier.predict(X_test) #remember, the test doesn't get fed any Y data. We just use Y_test to see how accurate the results of the prediction were
+    # How accurate is it?
+    # predictions[:10]
+    # Y_test['high_humidity_label'][:10]
+    r.append(accuracy_score(y_true = Y_test, y_pred = predictions))
+
+plt.plot(leaves,r)
